@@ -1,12 +1,13 @@
 #include "Chapter2_명령.h"
-#pragma warning(disable : 4996)
+#pragma warning(disable : 4996)	// disable _sleep warning
 
 void CHAPTER_2_COMMAND::ExampleClass::operator()()
 {
 	bool stopFlag{ false };
 
 	std::thread inputThread = std::thread(
-		[](bool& InStopFlag, InputHandler& InInputHandler) 
+		[/* void */](bool& InStopFlag, InputHandler& InInputHandler)
+		noexcept -> auto 
 	{
 		char charBuffer{};
 	
@@ -23,46 +24,48 @@ void CHAPTER_2_COMMAND::ExampleClass::operator()()
 			InInputHandler.GetPlayerInput(charBuffer);
 		}
 	}
-		, std::ref(stopFlag)
-		, std::ref(inputhandler)
+		, std::reference_wrapper<bool>(stopFlag)
+		, std::reference_wrapper<InputHandler>(inputhandler)
 	);
 	
 	std::thread loadCommandTherad = std::thread(
-		[](bool& InStopFlag, CommandManager& InCommandManager, InputHandler& InInputHandler)
+		[/* void */](bool& InStopFlag, CommandManager& InCommandManager, InputHandler& InInputHandler)
+		noexcept -> auto 
 	{
 		while (!InStopFlag)
 		{
-			std::cout << "Load Start!\n";
+			std::cout << "[ Load ] Start!    ";
 			InCommandManager.LoadCommand(InInputHandler);
-			std::cout << "Load End!\n";
+			std::cout << "    End!\n";
 			_sleep(1000);
 		}
 	}
-		, std::ref(stopFlag)
-		, std::ref(commandManager)
-		, std::ref(inputhandler)
+		, std::reference_wrapper<bool>(stopFlag)
+		, std::reference_wrapper<CommandManager>(commandManager)
+		, std::reference_wrapper<InputHandler>(inputhandler)
 	);
 	
 	std::thread executeCommandTherad = std::thread(
-		[](bool& InStopFlag, CommandManager& InCommandManager)
+		[/* void */](bool& InStopFlag, CommandManager& InCommandManager)
+		noexcept -> auto 
 	{
 		while (!InStopFlag)
 		{
-			std::cout << "Execute Start!\n";
+			std::cout << "[ Execute ] \n --- Start!    \n";
 			InCommandManager.ExecuteCommand();
-			std::cout << "Execute End!\n";
+			std::cout << " --- End!\n";
 			_sleep(3000);
 		}
 	}
-		, std::ref(stopFlag)
-		, std::ref(commandManager)
+		, std::reference_wrapper<bool>(stopFlag)
+		, std::reference_wrapper<CommandManager>(commandManager)
 	);
 	
 	inputThread.join();
 	loadCommandTherad.join();
 	executeCommandTherad.join();
 
-	std::cout << "\n [ERROR]일부 메모리 누수가 발생합니다..ㅎ\n";
+	std::cout << "\n [ERROR]일부 메모리 누수가 발생할 가능성이 있습니다...ㅎ\n";
 }
 
 
@@ -89,7 +92,7 @@ void CHAPTER_2_COMMAND::SleepCommand::Execute(GameActor& InActor)
 }
 
 
-CHAPTER_2_COMMAND::InputHandler::InputHandler() 
+CHAPTER_2_COMMAND::InputHandler::InputHandler() noexcept
 	: Button_X('x'), Button_Y('y'), Button_A('a'), Button_B('b')
 	, inputtedChar('c')
 {
@@ -98,6 +101,14 @@ CHAPTER_2_COMMAND::InputHandler::InputHandler()
 	buttonA = new RunCommand();
 	buttonB = new SleepCommand();
 };
+
+CHAPTER_2_COMMAND::InputHandler::~InputHandler()
+{
+	delete buttonX;
+	delete buttonY;
+	delete buttonA;
+	delete buttonB;
+}
 
 
 void CHAPTER_2_COMMAND::InputHandler::GetPlayerInput(const char InChar)
@@ -108,16 +119,18 @@ void CHAPTER_2_COMMAND::InputHandler::GetPlayerInput(const char InChar)
 bool CHAPTER_2_COMMAND::InputHandler::isPressed(const char InChar)
 {
 	return inputtedChar == InChar
-		? true
+		? [ /* void */](char& InInputtedChar) 
+		noexcept -> bool {InInputtedChar = 'c'; return true; }
+		(std::ref(inputtedChar))
 		: false;
 }
 
 CHAPTER_2_COMMAND::BaseCommand* CHAPTER_2_COMMAND::InputHandler::HandleInput()
 {
-	if (isPressed(Button_X)) return buttonX;
-	if (isPressed(Button_Y)) return buttonY;
-	if (isPressed(Button_A)) return buttonA;
-	if (isPressed(Button_B)) return buttonB;
+	if (isPressed(Button_X)) { /* std::cout << "Return X\n"; */ return buttonX; }
+	if (isPressed(Button_Y)) { /* std::cout << "Return Y\n"; */ return buttonY; }
+	if (isPressed(Button_A)) { /* std::cout << "Return A\n"; */ return buttonA; }
+	if (isPressed(Button_B)) { /* std::cout << "Return B\n"; */ return buttonB; }
 	return nullptr;
 }
 
@@ -125,14 +138,19 @@ CHAPTER_2_COMMAND::BaseCommand* CHAPTER_2_COMMAND::InputHandler::HandleInput()
 void CHAPTER_2_COMMAND::CommandManager::LoadCommand(InputHandler& InInputHandler)
 {
 	BaseCommand* command = InInputHandler.HandleInput();
-	commandQueue.emplace_back(command);
+	
+	if(command != nullptr)
+		commandQueue.emplace_back(command);
 }
 
 void CHAPTER_2_COMMAND::CommandManager::ExecuteCommand()
 {
-	if (BaseCommand* command = commandQueue.front(); command != nullptr)
+	if (commandQueue.size())
 	{
-		command->Execute(actor);
-		commandQueue.pop_front();
+		if (BaseCommand* command = commandQueue.front(); command != nullptr)
+		{
+			command->Execute(actor);
+			commandQueue.pop_front();
+		}
 	}
 }

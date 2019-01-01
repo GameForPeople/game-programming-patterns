@@ -6,11 +6,15 @@
 
 	"명령 패턴은 메서드 호출을 실체화한 것이다."
 	"명령 패턴은 콜백을 객체지향적으로 표현한 것"
+
+	2.1 입력키 변경, 2.2 액터에게 지시하기 예제 구현.
 */
 
 #include <iostream>
-#include <deque>
+
 #include <thread>
+
+#include <deque>
 
 namespace CHAPTER_2_COMMAND
 {
@@ -19,10 +23,10 @@ namespace CHAPTER_2_COMMAND
 	class GameActor
 	{
 	public:
-		void Jump() { std::cout << "Jump!\n"; }
-		void Fire() { std::cout << "Fire!\n"; }
-		void Run() { std::cout << "Run!\n"; }
-		void Sleep() { std::cout << "Sleep!\n"; }
+		void Jump() { std::cout << " Jump!\n"; }
+		void Fire() { std::cout << " Fire!\n"; }
+		void Run() { std::cout << " Run!\n"; }
+		void Sleep() { std::cout << " Sleep!\n"; }
 	};
 
 	class InputHandler
@@ -40,7 +44,8 @@ namespace CHAPTER_2_COMMAND
 		char				Button_B;
 		
 	public:
-		InputHandler();
+		InputHandler() noexcept;
+		~InputHandler();
 
 	public:
 		BaseCommand* HandleInput();
@@ -53,7 +58,7 @@ namespace CHAPTER_2_COMMAND
 	class CommandManager
 	{
 		std::deque<BaseCommand*>	commandQueue;
-		
+
 		GameActor					actor;
 	public:
 		void LoadCommand(InputHandler& InInputHandler);
